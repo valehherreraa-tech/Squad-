@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador Biomecánico - Sentadilla</title>
+    <!-- Carga de MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+    
+    <style>
+        :root {
+            /* Nuevo tema oscuro profesional */
+            --bg: #0f172a; /* Azul oscuro profundo */
+            --card-bg: #1e293b; /* Azul grisáceo para las tarjetas */
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --text: #f8fafc; /* Texto claro */
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 30px;
+            color: #e2e8f0;
+            letter-spacing: 1px;
+        }
+
+        /* Barra superior de controles */
+        .top-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+        }
+
+        .upload-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .upload-group {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+        }
+
+        .upload-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        input[type="file"] {
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        #btn-capture {
+            background-color: var(--success);
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        #btn-capture:hover:not(:disabled) { background-color: var(--success-hover); transform: translateY(-2px); }
+        #btn-capture:disabled { background: #475569; cursor: not-allowed; color: #94a3b8; box-shadow: none; }
+
+        /* Contenedor principal de análisis */
+        .analysis-section {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .analysis-row {
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Video a la izquierda */
+        .video-panel {
+            position: relative;
+            background: #000;
+            width: 100%;
+            flex: 1.2;
+        }
+
+        video { width: 100%; height: auto; display: block; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+        /* Resultados a la derecha */
+        .results-panel {
+            padding: 25px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .results-panel h2 {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            font-size: 1.4rem;
+        }
+
+        .side-indicator { font-size: 0.9rem; color: var(--text-muted); font-weight: normal; }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 1.1rem;
+        }
+
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: var(--text-muted); }
+        .data-value { font-weight: 700; color: #f8fafc; font-size: 1.2rem; }
+
+        @media (min-width: 992px) {
+            .top-bar { flex-direction: row; align-items: center; }
+            .upload-controls { flex-direction: row; flex: 2; }
+            #btn-capture { flex: 1; height: 100%; }
+            .analysis-row { flex-direction: row; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Sistema de Análisis de Sentadilla</h1>
+
+        <!-- Controles Superiores -->
+        <div class="top-bar">
+            <div class="upload-controls">
+                <div class="upload-group">
+                    <h3>Vista Sagital (Lateral)</h3>
+                    <input type="file" id="input-sag" accept="video/*">
+                </div>
+                <div class="upload-group">
+                    <h3>Vista Frontal (Frente)</h3>
+                    <input type="file" id="input-front" accept="video/*">
+                </div>
+            </div>
+            <button id="btn-capture" disabled>📸 Capturar Análisis</button>
+        </div>
+
+        <div class="analysis-section">
+            <!-- Fila Plano Sagital -->
+            <div class="analysis-row">
+                <div class="video-panel">
+                    <video id="video-sag" playsinline muted loop autoplay></video>
+                    <canvas id="canvas-sag"></canvas>
+                </div>
+                <div class="results-panel">
+                    <h2>Plano Sagital <span id="res-sag-side" class="side-indicator">(Esperando...)</span></h2>
+                    <div class="data-row">
+                        <span class="data-label">Ángulo de Hombro</span>
+                        <span class="data-value" id="res-sag-hombro">--°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Flexión de Codo</span>
+                        <span class="data-value" id="res-sag-codo">--°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Flexión Tronco/Cadera</span>
+                        <span class="data-value" id="res-sag-cadera">--°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Flexión de Rodilla</span>
+                        <span class="data-value" id="res-sag-rodilla">--°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Dorsiflexión Tobillo</span>
+                        <span class="data-value" id="res-sag-tobillo">--°</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila Plano Frontal -->
+            <div class="analysis-row">
+                <div class="video-panel">
+                    <video id="video-front" playsinline muted loop autoplay></video>
+                    <canvas id="canvas-front"></canvas>
+                </div>
+                <div class="results-panel">
+                    <h2>Plano Frontal <span class="side-indicator">(Der / Izq)</span></h2>
+                    <div class="data-row">
+                        <span class="data-label">Alineación Hombros</span>
+                        <span class="data-value" id="res-front-hombro">--° / --°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Alineación Codos</span>
+                        <span class="data-value" id="res-front-codo">--° / --°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Alineación Pélvica</span>
+                        <span class="data-value" id="res-front-cadera">--° / --°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Valgo/Varo Rodillas</span>
+                        <span class="data-value" id="res-front-rodilla">--° / --°</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Alineación Tobillos</span>
+                        <span class="data-value" id="res-front-tobillo">--° / --°</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const videoSag = document.getElementById('video-sag');
+        const videoFront = document.getElementById('video-front');
+        const canvasSag = document.getElementById('canvas-sag');
+        const canvasFront = document.getElementById('canvas-front');
+        const ctxSag = canvasSag.getContext('2d');
+        const ctxFront = canvasFront.getContext('2d');
+        
+        const btnCapture = document.getElementById('btn-capture');
+
+        let isProcessingSag = false;
+        let isProcessingFront = false;
+        
+        const currentData = {
+            sagittal: { side: '', hombro: '--', codo: '--', cadera: '--', rodilla: '--', tobillo: '--' },
+            frontal: { hombro: '--', codo: '--', cadera: '--', rodilla: '--', tobillo: '--' }
+        };
+
+        const L = {
+            l_sh: 11, r_sh: 12, l_el: 13, r_el: 14, l_wr: 15, r_wr: 16,
+            l_hi: 23, r_hi: 24, l_kn: 25, r_kn: 26, l_an: 27, r_an: 28,
+            l_ft: 31, r_ft: 32
+        };
+
+        function calculateAngle(p1, p2, p3) {
+            if (!p1 || !p2 || !p3 || p1.visibility < 0.4 || p2.visibility < 0.4 || p3.visibility < 0.4) return null;
+            let radians = Math.atan2(p3.y - p2.y, p3.x - p2.x) - Math.atan2(p1.y - p2.y, p1.x - p2.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            if (angle > 180.0) angle = 360.0 - angle;
+            return Math.round(angle);
+        }
+
+        function drawLine(ctx, p1, p2, width, height) {
+            if (!p1 || !p2 || p1.visibility < 0.4 || p2.visibility < 0.4) return;
+            ctx.beginPath();
+            ctx.moveTo(p1.x * width, p1.y * height);
+            ctx.lineTo(p2.x * width, p2.y * height);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#10b981'; // Verde esmeralda
+            ctx.stroke();
+        }
+
+        // Máscara Facial Estilo Low-Poly
+        function drawFaceMesh(ctx, landmarks, width, height) {
+            const FACE_TRIS = [
+                [0, 1], [1, 2], [2, 3], [3, 7], 
+                [0, 4], [4, 5], [5, 6], [6, 8], 
+                [0, 9], [0, 10], [9, 10],       
+                [9, 7], [10, 8],                
+                [1, 4],                         
+                [3, 9], [6, 10],                
+                [2, 9], [5, 10]                 
+            ];
+            
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#06b6d4'; // Cyan brillante
+
+            FACE_TRIS.forEach(pair => {
+                const p1 = landmarks[pair[0]];
+                const p2 = landmarks[pair[1]];
+                if (p1 && p2 && p1.visibility > 0.4 && p2.visibility > 0.4) {
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x * width, p1.y * height);
+                    ctx.lineTo(p2.x * width, p2.y * height);
+                    ctx.stroke();
+                }
+            });
+
+            ctx.fillStyle = '#06b6d4';
+            for(let i = 0; i <= 10; i++) {
+                const p = landmarks[i];
+                if (p && p.visibility > 0.4) {
+                    ctx.beginPath();
+                    ctx.arc(p.x * width, p.y * height, 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawJoint(ctx, landmark, angleValue, width, height) {
+            if (!landmark || landmark.visibility < 0.4) return;
+            const x = landmark.x * width;
+            const y = landmark.y * height;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ef4444'; // Rojo brillante
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            if (angleValue !== null) {
+                ctx.font = "bold 16px Arial";
+                ctx.fillStyle = "#ffffff";
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 3;
+                ctx.strokeText(`${angleValue}°`, x + 12, y - 10);
+                ctx.fillText(`${angleValue}°`, x + 12, y - 10);
+            }
+        }
+
+        function onResultsSagittal(results) {
+            ctxSag.clearRect(0, 0, canvasSag.width, canvasSag.height);
+            if (!results.poseLandmarks) return;
+
+            const lm = results.poseLandmarks;
+            const w = canvasSag.width;
+            const h = canvasSag.height;
+
+            const isLeft = (lm[L.l_hi].visibility + lm[L.l_kn].visibility) > (lm[L.r_hi].visibility + lm[L.r_kn].visibility);
+            
+            const p_sh = isLeft ? L.l_sh : L.r_sh;
+            const p_el = isLeft ? L.l_el : L.r_el;
+            const p_wr = isLeft ? L.l_wr : L.r_wr;
+            const p_hi = isLeft ? L.l_hi : L.r_hi;
+            const p_kn = isLeft ? L.l_kn : L.r_kn;
+            const p_an = isLeft ? L.l_an : L.r_an;
+            const p_ft = isLeft ? L.l_ft : L.r_ft;
+
+            currentData.sagittal.side = isLeft ? '(Perfil Izquierdo)' : '(Perfil Derecho)';
+            currentData.sagittal.hombro = calculateAngle(lm[p_hi], lm[p_sh], lm[p_el]) ?? '--';
+            currentData.sagittal.codo = calculateAngle(lm[p_sh], lm[p_el], lm[p_wr]) ?? '--';
+            currentData.sagittal.cadera = calculateAngle(lm[p_sh], lm[p_hi], lm[p_kn]) ?? '--';
+            currentData.sagittal.rodilla = calculateAngle(lm[p_hi], lm[p_kn], lm[p_an]) ?? '--';
+            currentData.sagittal.tobillo = calculateAngle(lm[p_kn], lm[p_an], lm[p_ft]) ?? '--';
+
+            drawFaceMesh(ctxSag, lm, w, h);
+
+            drawLine(ctxSag, lm[p_sh], lm[p_el], w, h);
+            drawLine(ctxSag, lm[p_el], lm[p_wr], w, h);
+            drawLine(ctxSag, lm[p_sh], lm[p_hi], w, h);
+            drawLine(ctxSag, lm[p_hi], lm[p_kn], w, h);
+            drawLine(ctxSag, lm[p_kn], lm[p_an], w, h);
+            drawLine(ctxSag, lm[p_an], lm[p_ft], w, h);
+
+            drawJoint(ctxSag, lm[p_sh], currentData.sagittal.hombro, w, h);
+            drawJoint(ctxSag, lm[p_el], currentData.sagittal.codo, w, h);
+            drawJoint(ctxSag, lm[p_hi], currentData.sagittal.cadera, w, h);
+            drawJoint(ctxSag, lm[p_kn], currentData.sagittal.rodilla, w, h);
+            drawJoint(ctxSag, lm[p_an], currentData.sagittal.tobillo, w, h);
+        }
+
+        function onResultsFrontal(results) {
+            ctxFront.clearRect(0, 0, canvasFront.width, canvasFront.height);
+            if (!results.poseLandmarks) return;
+
+            const lm = results.poseLandmarks;
+            const w = canvasFront.width;
+            const h = canvasFront.height;
+
+            const l_sh = calculateAngle(lm[L.l_hi], lm[L.l_sh], lm[L.l_el]);
+            const r_sh = calculateAngle(lm[L.r_hi], lm[L.r_sh], lm[L.r_el]);
+            const l_el = calculateAngle(lm[L.l_sh], lm[L.l_el], lm[L.l_wr]);
+            const r_el = calculateAngle(lm[L.r_sh], lm[L.r_el], lm[L.r_wr]);
+            const l_hi = calculateAngle(lm[L.l_sh], lm[L.l_hi], lm[L.l_kn]);
+            const r_hi = calculateAngle(lm[L.r_sh], lm[L.r_hi], lm[L.r_kn]);
+            const l_kn = calculateAngle(lm[L.l_hi], lm[L.l_kn], lm[L.l_an]);
+            const r_kn = calculateAngle(lm[L.r_hi], lm[L.r_kn], lm[L.r_an]);
+            const l_an = calculateAngle(lm[L.l_kn], lm[L.l_an], lm[L.l_ft]);
+            const r_an = calculateAngle(lm[L.r_kn], lm[L.r_an], lm[L.r_ft]);
+
+            currentData.frontal.hombro = `${r_sh ?? '--'}° / ${l_sh ?? '--'}°`;
+            currentData.frontal.codo = `${r_el ?? '--'}° / ${l_el ?? '--'}°`;
+            currentData.frontal.cadera = `${r_hi ?? '--'}° / ${l_hi ?? '--'}°`;
+            currentData.frontal.rodilla = `${r_kn ?? '--'}° / ${l_kn ?? '--'}°`;
+            currentData.frontal.tobillo = `${r_an ?? '--'}° / ${l_an ?? '--'}°`;
+
+            drawFaceMesh(ctxFront, lm, w, h);
+
+            drawLine(ctxFront, lm[L.l_sh], lm[L.l_el], w, h);
+            drawLine(ctxFront, lm[L.l_el], lm[L.l_wr], w, h);
+            drawLine(ctxFront, lm[L.l_sh], lm[L.l_hi], w, h);
+            drawLine(ctxFront, lm[L.l_hi], lm[L.l_kn], w, h);
+            drawLine(ctxFront, lm[L.l_kn], lm[L.l_an], w, h);
+            drawLine(ctxFront, lm[L.l_an], lm[L.l_ft], w, h);
+
+            drawLine(ctxFront, lm[L.r_sh], lm[L.r_el], w, h);
+            drawLine(ctxFront, lm[L.r_el], lm[L.r_wr], w, h);
+            drawLine(ctxFront, lm[L.r_sh], lm[L.r_hi], w, h);
+            drawLine(ctxFront, lm[L.r_hi], lm[L.r_kn], w, h);
+            drawLine(ctxFront, lm[L.r_kn], lm[L.r_an], w, h);
+            drawLine(ctxFront, lm[L.r_an], lm[L.r_ft], w, h);
+
+            drawLine(ctxFront, lm[L.l_sh], lm[L.r_sh], w, h);
+            drawLine(ctxFront, lm[L.l_hi], lm[L.r_hi], w, h);
+
+            drawJoint(ctxFront, lm[L.l_sh], l_sh, w, h);
+            drawJoint(ctxFront, lm[L.l_hi], l_hi, w, h);
+            drawJoint(ctxFront, lm[L.l_kn], l_kn, w, h);
+            drawJoint(ctxFront, lm[L.l_an], l_an, w, h);
+            
+            drawJoint(ctxFront, lm[L.r_sh], r_sh, w, h);
+            drawJoint(ctxFront, lm[L.r_hi], r_hi, w, h);
+            drawJoint(ctxFront, lm[L.r_kn], r_kn, w, h);
+            drawJoint(ctxFront, lm[L.r_an], r_an, w, h);
+        }
+
+        const poseOptions = { modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 };
+
+        const poseSagittal = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`});
+        poseSagittal.setOptions(poseOptions);
+        poseSagittal.onResults(onResultsSagittal);
+
+        const poseFrontal = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`});
+        poseFrontal.setOptions(poseOptions);
+        poseFrontal.onResults(onResultsFrontal);
+
+        Promise.all([poseSagittal.initialize(), poseFrontal.initialize()]).then(() => {
+            btnCapture.disabled = false;
+        });
+
+        // Bucle continuo para procesar ambos videos
+        async function processVideoFrames() {
+            if (!videoSag.paused && !isProcessingSag && videoSag.readyState >= 2) {
+                isProcessingSag = true;
+                await poseSagittal.send({image: videoSag}).catch(()=>{});
+                isProcessingSag = false;
+            }
+            if (!videoFront.paused && !isProcessingFront && videoFront.readyState >= 2) {
+                isProcessingFront = true;
+                await poseFrontal.send({image: videoFront}).catch(()=>{});
+                isProcessingFront = false;
+            }
+            requestAnimationFrame(processVideoFrames);
+        }
+
+        function setupVideo(inputId, videoElem, canvasElem) {
+            document.getElementById(inputId).addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    videoElem.src = URL.createObjectURL(file);
+                }
+            });
+            videoElem.addEventListener('loadeddata', () => {
+                canvasElem.width = videoElem.videoWidth;
+                canvasElem.height = videoElem.videoHeight;
+                videoElem.play();
+            });
+        }
+
+        setupVideo('input-sag', videoSag, canvasSag);
+        setupVideo('input-front', videoFront, canvasFront);
+        
+        // Iniciar el ciclo de procesamiento
+        processVideoFrames();
+
+        // Botón Capturar transfiere los datos a las tablas
+        btnCapture.addEventListener('click', () => {
+            document.getElementById('res-sag-side').innerText = currentData.sagittal.side;
+            document.getElementById('res-sag-hombro').innerText = currentData.sagittal.hombro + '°';
+            document.getElementById('res-sag-codo').innerText = currentData.sagittal.codo + '°';
+            document.getElementById('res-sag-cadera').innerText = currentData.sagittal.cadera + '°';
+            document.getElementById('res-sag-rodilla').innerText = currentData.sagittal.rodilla + '°';
+            document.getElementById('res-sag-tobillo').innerText = currentData.sagittal.tobillo + '°';
+            
+            document.getElementById('res-front-hombro').innerText = currentData.frontal.hombro;
+            document.getElementById('res-front-codo').innerText = currentData.frontal.codo;
+            document.getElementById('res-front-cadera').innerText = currentData.frontal.cadera;
+            document.getElementById('res-front-rodilla').innerText = currentData.frontal.rodilla;
+            document.getElementById('res-front-tobillo').innerText = currentData.frontal.tobillo;
+
+            // Flash visual
+            canvasSag.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+            canvasFront.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+            setTimeout(() => {
+                canvasSag.style.backgroundColor = 'transparent';
+                canvasFront.style.backgroundColor = 'transparent';
+            }, 100);
+        });
+    </script>
+</body>
+</html>
