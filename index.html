@@ -4,19 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analizador Biomecánico - Sentadilla</title>
-    <!-- Carga de MediaPipe -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
     
     <style>
         :root {
-            /* Nuevo tema oscuro profesional */
-            --bg: #0f172a; /* Azul oscuro profundo */
-            --card-bg: #1e293b; /* Azul grisáceo para las tarjetas */
+            --bg: #0f172a; 
+            --card-bg: #1e293b; 
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --success: #10b981;
-            --success-hover: #059669;
-            --text: #f8fafc; /* Texto claro */
+            --text: #f8fafc; 
             --text-muted: #94a3b8;
             --border: #334155;
         }
@@ -42,7 +39,6 @@
             letter-spacing: 1px;
         }
 
-        /* Barra superior de controles */
         .top-bar {
             display: flex;
             flex-direction: column;
@@ -81,8 +77,8 @@
             font-size: 0.95rem;
         }
 
-        #btn-capture {
-            background-color: var(--success);
+        #btn-play-pause {
+            background-color: var(--primary);
             color: white;
             border: none;
             padding: 15px;
@@ -94,13 +90,12 @@
             transition: all 0.2s;
             text-transform: uppercase;
             letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
         }
 
-        #btn-capture:hover:not(:disabled) { background-color: var(--success-hover); transform: translateY(-2px); }
-        #btn-capture:disabled { background: #475569; cursor: not-allowed; color: #94a3b8; box-shadow: none; }
+        #btn-play-pause:hover:not(:disabled) { background-color: var(--primary-hover); transform: translateY(-2px); }
+        #btn-play-pause:disabled { background: #475569; cursor: not-allowed; color: #94a3b8; box-shadow: none; }
 
-        /* Contenedor principal de análisis */
         .analysis-section {
             display: flex;
             flex-direction: column;
@@ -117,7 +112,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
 
-        /* Video a la izquierda */
         .video-panel {
             position: relative;
             background: #000;
@@ -128,7 +122,6 @@
         video { width: 100%; height: auto; display: block; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
-        /* Resultados a la derecha */
         .results-panel {
             padding: 25px;
             flex: 1;
@@ -163,7 +156,7 @@
         @media (min-width: 992px) {
             .top-bar { flex-direction: row; align-items: center; }
             .upload-controls { flex-direction: row; flex: 2; }
-            #btn-capture { flex: 1; height: 100%; }
+            #btn-play-pause { flex: 1; height: 100%; }
             .analysis-row { flex-direction: row; }
         }
     </style>
@@ -173,7 +166,6 @@
     <div class="container">
         <h1>Sistema de Análisis de Sentadilla</h1>
 
-        <!-- Controles Superiores -->
         <div class="top-bar">
             <div class="upload-controls">
                 <div class="upload-group">
@@ -185,7 +177,7 @@
                     <input type="file" id="input-front" accept="video/*">
                 </div>
             </div>
-            <button id="btn-capture" disabled>📸 Capturar Análisis</button>
+            <button id="btn-play-pause" disabled>⏸️ Play / Pause</button>
         </div>
 
         <div class="analysis-section">
@@ -196,7 +188,7 @@
                     <canvas id="canvas-sag"></canvas>
                 </div>
                 <div class="results-panel">
-                    <h2>Plano Sagital <span id="res-sag-side" class="side-indicator">(Esperando...)</span></h2>
+                    <h2>Plano Sagital <span id="res-sag-side" class="side-indicator"></span></h2>
                     <div class="data-row">
                         <span class="data-label">Ángulo de Hombro</span>
                         <span class="data-value" id="res-sag-hombro">--°</span>
@@ -260,16 +252,10 @@
         const canvasFront = document.getElementById('canvas-front');
         const ctxSag = canvasSag.getContext('2d');
         const ctxFront = canvasFront.getContext('2d');
-        
-        const btnCapture = document.getElementById('btn-capture');
+        const btnPlayPause = document.getElementById('btn-play-pause');
 
         let isProcessingSag = false;
         let isProcessingFront = false;
-        
-        const currentData = {
-            sagittal: { side: '', hombro: '--', codo: '--', cadera: '--', rodilla: '--', tobillo: '--' },
-            frontal: { hombro: '--', codo: '--', cadera: '--', rodilla: '--', tobillo: '--' }
-        };
 
         const L = {
             l_sh: 11, r_sh: 12, l_el: 13, r_el: 14, l_wr: 15, r_wr: 16,
@@ -291,11 +277,10 @@
             ctx.moveTo(p1.x * width, p1.y * height);
             ctx.lineTo(p2.x * width, p2.y * height);
             ctx.lineWidth = 3;
-            ctx.strokeStyle = '#10b981'; // Verde esmeralda
+            ctx.strokeStyle = '#10b981';
             ctx.stroke();
         }
 
-        // Máscara Facial Estilo Low-Poly
         function drawFaceMesh(ctx, landmarks, width, height) {
             const FACE_TRIS = [
                 [0, 1], [1, 2], [2, 3], [3, 7], 
@@ -308,7 +293,7 @@
             ];
             
             ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#06b6d4'; // Cyan brillante
+            ctx.strokeStyle = '#06b6d4';
 
             FACE_TRIS.forEach(pair => {
                 const p1 = landmarks[pair[0]];
@@ -339,7 +324,7 @@
 
             ctx.beginPath();
             ctx.arc(x, y, 6, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ef4444'; // Rojo brillante
+            ctx.fillStyle = '#ef4444';
             ctx.fill();
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#ffffff';
@@ -373,15 +358,21 @@
             const p_an = isLeft ? L.l_an : L.r_an;
             const p_ft = isLeft ? L.l_ft : L.r_ft;
 
-            currentData.sagittal.side = isLeft ? '(Perfil Izquierdo)' : '(Perfil Derecho)';
-            currentData.sagittal.hombro = calculateAngle(lm[p_hi], lm[p_sh], lm[p_el]) ?? '--';
-            currentData.sagittal.codo = calculateAngle(lm[p_sh], lm[p_el], lm[p_wr]) ?? '--';
-            currentData.sagittal.cadera = calculateAngle(lm[p_sh], lm[p_hi], lm[p_kn]) ?? '--';
-            currentData.sagittal.rodilla = calculateAngle(lm[p_hi], lm[p_kn], lm[p_an]) ?? '--';
-            currentData.sagittal.tobillo = calculateAngle(lm[p_kn], lm[p_an], lm[p_ft]) ?? '--';
+            const ang_hombro = calculateAngle(lm[p_hi], lm[p_sh], lm[p_el]);
+            const ang_codo = calculateAngle(lm[p_sh], lm[p_el], lm[p_wr]);
+            const ang_cadera = calculateAngle(lm[p_sh], lm[p_hi], lm[p_kn]);
+            const ang_rodilla = calculateAngle(lm[p_hi], lm[p_kn], lm[p_an]);
+            const ang_tobillo = calculateAngle(lm[p_kn], lm[p_an], lm[p_ft]);
+
+            // Actualización de resultados en tiempo real
+            document.getElementById('res-sag-side').innerText = isLeft ? '(Perfil Izquierdo)' : '(Perfil Derecho)';
+            document.getElementById('res-sag-hombro').innerText = (ang_hombro ?? '--') + '°';
+            document.getElementById('res-sag-codo').innerText = (ang_codo ?? '--') + '°';
+            document.getElementById('res-sag-cadera').innerText = (ang_cadera ?? '--') + '°';
+            document.getElementById('res-sag-rodilla').innerText = (ang_rodilla ?? '--') + '°';
+            document.getElementById('res-sag-tobillo').innerText = (ang_tobillo ?? '--') + '°';
 
             drawFaceMesh(ctxSag, lm, w, h);
-
             drawLine(ctxSag, lm[p_sh], lm[p_el], w, h);
             drawLine(ctxSag, lm[p_el], lm[p_wr], w, h);
             drawLine(ctxSag, lm[p_sh], lm[p_hi], w, h);
@@ -389,11 +380,11 @@
             drawLine(ctxSag, lm[p_kn], lm[p_an], w, h);
             drawLine(ctxSag, lm[p_an], lm[p_ft], w, h);
 
-            drawJoint(ctxSag, lm[p_sh], currentData.sagittal.hombro, w, h);
-            drawJoint(ctxSag, lm[p_el], currentData.sagittal.codo, w, h);
-            drawJoint(ctxSag, lm[p_hi], currentData.sagittal.cadera, w, h);
-            drawJoint(ctxSag, lm[p_kn], currentData.sagittal.rodilla, w, h);
-            drawJoint(ctxSag, lm[p_an], currentData.sagittal.tobillo, w, h);
+            drawJoint(ctxSag, lm[p_sh], ang_hombro, w, h);
+            drawJoint(ctxSag, lm[p_el], ang_codo, w, h);
+            drawJoint(ctxSag, lm[p_hi], ang_cadera, w, h);
+            drawJoint(ctxSag, lm[p_kn], ang_rodilla, w, h);
+            drawJoint(ctxSag, lm[p_an], ang_tobillo, w, h);
         }
 
         function onResultsFrontal(results) {
@@ -415,28 +406,26 @@
             const l_an = calculateAngle(lm[L.l_kn], lm[L.l_an], lm[L.l_ft]);
             const r_an = calculateAngle(lm[L.r_kn], lm[L.r_an], lm[L.r_ft]);
 
-            currentData.frontal.hombro = `${r_sh ?? '--'}° / ${l_sh ?? '--'}°`;
-            currentData.frontal.codo = `${r_el ?? '--'}° / ${l_el ?? '--'}°`;
-            currentData.frontal.cadera = `${r_hi ?? '--'}° / ${l_hi ?? '--'}°`;
-            currentData.frontal.rodilla = `${r_kn ?? '--'}° / ${l_kn ?? '--'}°`;
-            currentData.frontal.tobillo = `${r_an ?? '--'}° / ${l_an ?? '--'}°`;
+            // Actualización de resultados en tiempo real
+            document.getElementById('res-front-hombro').innerText = `${r_sh ?? '--'}° / ${l_sh ?? '--'}°`;
+            document.getElementById('res-front-codo').innerText = `${r_el ?? '--'}° / ${l_el ?? '--'}°`;
+            document.getElementById('res-front-cadera').innerText = `${r_hi ?? '--'}° / ${l_hi ?? '--'}°`;
+            document.getElementById('res-front-rodilla').innerText = `${r_kn ?? '--'}° / ${l_kn ?? '--'}°`;
+            document.getElementById('res-front-tobillo').innerText = `${r_an ?? '--'}° / ${l_an ?? '--'}°`;
 
             drawFaceMesh(ctxFront, lm, w, h);
-
             drawLine(ctxFront, lm[L.l_sh], lm[L.l_el], w, h);
             drawLine(ctxFront, lm[L.l_el], lm[L.l_wr], w, h);
             drawLine(ctxFront, lm[L.l_sh], lm[L.l_hi], w, h);
             drawLine(ctxFront, lm[L.l_hi], lm[L.l_kn], w, h);
             drawLine(ctxFront, lm[L.l_kn], lm[L.l_an], w, h);
             drawLine(ctxFront, lm[L.l_an], lm[L.l_ft], w, h);
-
             drawLine(ctxFront, lm[L.r_sh], lm[L.r_el], w, h);
             drawLine(ctxFront, lm[L.r_el], lm[L.r_wr], w, h);
             drawLine(ctxFront, lm[L.r_sh], lm[L.r_hi], w, h);
             drawLine(ctxFront, lm[L.r_hi], lm[L.r_kn], w, h);
             drawLine(ctxFront, lm[L.r_kn], lm[L.r_an], w, h);
             drawLine(ctxFront, lm[L.r_an], lm[L.r_ft], w, h);
-
             drawLine(ctxFront, lm[L.l_sh], lm[L.r_sh], w, h);
             drawLine(ctxFront, lm[L.l_hi], lm[L.r_hi], w, h);
 
@@ -444,7 +433,6 @@
             drawJoint(ctxFront, lm[L.l_hi], l_hi, w, h);
             drawJoint(ctxFront, lm[L.l_kn], l_kn, w, h);
             drawJoint(ctxFront, lm[L.l_an], l_an, w, h);
-            
             drawJoint(ctxFront, lm[L.r_sh], r_sh, w, h);
             drawJoint(ctxFront, lm[L.r_hi], r_hi, w, h);
             drawJoint(ctxFront, lm[L.r_kn], r_kn, w, h);
@@ -462,10 +450,9 @@
         poseFrontal.onResults(onResultsFrontal);
 
         Promise.all([poseSagittal.initialize(), poseFrontal.initialize()]).then(() => {
-            btnCapture.disabled = false;
+            btnPlayPause.disabled = false;
         });
 
-        // Bucle continuo para procesar ambos videos
         async function processVideoFrames() {
             if (!videoSag.paused && !isProcessingSag && videoSag.readyState >= 2) {
                 isProcessingSag = true;
@@ -497,31 +484,23 @@
         setupVideo('input-sag', videoSag, canvasSag);
         setupVideo('input-front', videoFront, canvasFront);
         
-        // Iniciar el ciclo de procesamiento
         processVideoFrames();
 
-        // Botón Capturar transfiere los datos a las tablas
-        btnCapture.addEventListener('click', () => {
-            document.getElementById('res-sag-side').innerText = currentData.sagittal.side;
-            document.getElementById('res-sag-hombro').innerText = currentData.sagittal.hombro + '°';
-            document.getElementById('res-sag-codo').innerText = currentData.sagittal.codo + '°';
-            document.getElementById('res-sag-cadera').innerText = currentData.sagittal.cadera + '°';
-            document.getElementById('res-sag-rodilla').innerText = currentData.sagittal.rodilla + '°';
-            document.getElementById('res-sag-tobillo').innerText = currentData.sagittal.tobillo + '°';
+        // Lógica unificada de Play / Pause
+        btnPlayPause.addEventListener('click', () => {
+            const isPaused = videoSag.paused || videoFront.paused;
             
-            document.getElementById('res-front-hombro').innerText = currentData.frontal.hombro;
-            document.getElementById('res-front-codo').innerText = currentData.frontal.codo;
-            document.getElementById('res-front-cadera').innerText = currentData.frontal.cadera;
-            document.getElementById('res-front-rodilla').innerText = currentData.frontal.rodilla;
-            document.getElementById('res-front-tobillo').innerText = currentData.frontal.tobillo;
-
-            // Flash visual
-            canvasSag.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
-            canvasFront.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
-            setTimeout(() => {
-                canvasSag.style.backgroundColor = 'transparent';
-                canvasFront.style.backgroundColor = 'transparent';
-            }, 100);
+            if (isPaused) {
+                if (videoSag.src) videoSag.play();
+                if (videoFront.src) videoFront.play();
+                btnPlayPause.innerHTML = '⏸️ Pausar';
+                btnPlayPause.style.backgroundColor = 'var(--primary)';
+            } else {
+                videoSag.pause();
+                videoFront.pause();
+                btnPlayPause.innerHTML = '▶️ Reproducir';
+                btnPlayPause.style.backgroundColor = 'var(--success)';
+            }
         });
     </script>
 </body>
