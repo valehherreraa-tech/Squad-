@@ -82,7 +82,7 @@
             color: white;
             border: none;
             padding: 15px;
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
@@ -93,7 +93,7 @@
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
         }
 
-        #btn-play-pause:hover:not(:disabled) { background-color: var(--primary-hover); transform: translateY(-2px); }
+        #btn-play-pause:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
         #btn-play-pause:disabled { background: #475569; cursor: not-allowed; color: #94a3b8; box-shadow: none; }
 
         .analysis-section {
@@ -117,6 +117,7 @@
             background: #000;
             width: 100%;
             flex: 1.2;
+            min-height: 300px;
         }
 
         video { width: 100%; height: auto; display: block; }
@@ -177,11 +178,10 @@
                     <input type="file" id="input-front" accept="video/*">
                 </div>
             </div>
-            <button id="btn-play-pause" disabled>⏸️ Play / Pause</button>
+            <button id="btn-play-pause" disabled>⏸️ Pausar para Leer</button>
         </div>
 
         <div class="analysis-section">
-            <!-- Fila Plano Sagital -->
             <div class="analysis-row">
                 <div class="video-panel">
                     <video id="video-sag" playsinline muted loop autoplay></video>
@@ -212,7 +212,6 @@
                 </div>
             </div>
 
-            <!-- Fila Plano Frontal -->
             <div class="analysis-row">
                 <div class="video-panel">
                     <video id="video-front" playsinline muted loop autoplay></video>
@@ -291,10 +290,8 @@
                 [3, 9], [6, 10],                
                 [2, 9], [5, 10]                 
             ];
-            
             ctx.lineWidth = 1.5;
             ctx.strokeStyle = '#06b6d4';
-
             FACE_TRIS.forEach(pair => {
                 const p1 = landmarks[pair[0]];
                 const p2 = landmarks[pair[1]];
@@ -305,7 +302,6 @@
                     ctx.stroke();
                 }
             });
-
             ctx.fillStyle = '#06b6d4';
             for(let i = 0; i <= 10; i++) {
                 const p = landmarks[i];
@@ -321,7 +317,6 @@
             if (!landmark || landmark.visibility < 0.4) return;
             const x = landmark.x * width;
             const y = landmark.y * height;
-
             ctx.beginPath();
             ctx.arc(x, y, 6, 0, 2 * Math.PI);
             ctx.fillStyle = '#ef4444';
@@ -364,7 +359,6 @@
             const ang_rodilla = calculateAngle(lm[p_hi], lm[p_kn], lm[p_an]);
             const ang_tobillo = calculateAngle(lm[p_kn], lm[p_an], lm[p_ft]);
 
-            // Actualización de resultados en tiempo real
             document.getElementById('res-sag-side').innerText = isLeft ? '(Perfil Izquierdo)' : '(Perfil Derecho)';
             document.getElementById('res-sag-hombro').innerText = (ang_hombro ?? '--') + '°';
             document.getElementById('res-sag-codo').innerText = (ang_codo ?? '--') + '°';
@@ -406,7 +400,6 @@
             const l_an = calculateAngle(lm[L.l_kn], lm[L.l_an], lm[L.l_ft]);
             const r_an = calculateAngle(lm[L.r_kn], lm[L.r_an], lm[L.r_ft]);
 
-            // Actualización de resultados en tiempo real
             document.getElementById('res-front-hombro').innerText = `${r_sh ?? '--'}° / ${l_sh ?? '--'}°`;
             document.getElementById('res-front-codo').innerText = `${r_el ?? '--'}° / ${l_el ?? '--'}°`;
             document.getElementById('res-front-cadera').innerText = `${r_hi ?? '--'}° / ${l_hi ?? '--'}°`;
@@ -472,6 +465,9 @@
                 const file = e.target.files[0];
                 if (file) {
                     videoElem.src = URL.createObjectURL(file);
+                    // Reiniciar estado del botón si se sube un nuevo video
+                    btnPlayPause.innerHTML = '⏸️ Pausar para Leer';
+                    btnPlayPause.style.backgroundColor = 'var(--primary)';
                 }
             });
             videoElem.addEventListener('loadeddata', () => {
@@ -486,20 +482,29 @@
         
         processVideoFrames();
 
-        // Lógica unificada de Play / Pause
+        // LÓGICA DE BOTÓN CORREGIDA A PRUEBA DE FALLOS
         btnPlayPause.addEventListener('click', () => {
-            const isPaused = videoSag.paused || videoFront.paused;
-            
-            if (isPaused) {
-                if (videoSag.src) videoSag.play();
-                if (videoFront.src) videoFront.play();
-                btnPlayPause.innerHTML = '⏸️ Pausar';
-                btnPlayPause.style.backgroundColor = 'var(--primary)';
-            } else {
-                videoSag.pause();
-                videoFront.pause();
-                btnPlayPause.innerHTML = '▶️ Reproducir';
+            const sagReady = videoSag.readyState >= 2;
+            const frontReady = videoFront.readyState >= 2;
+
+            if (!sagReady && !frontReady) {
+                alert("Por favor, sube al menos un video primero.");
+                return;
+            }
+
+            // Si ALGÚN video válido está reproduciéndose, la acción global es PAUSAR
+            const isPlaying = (sagReady && !videoSag.paused) || (frontReady && !videoFront.paused);
+
+            if (isPlaying) {
+                if (sagReady) videoSag.pause();
+                if (frontReady) videoFront.pause();
+                btnPlayPause.innerHTML = '▶️ Reproducir para Continuar';
                 btnPlayPause.style.backgroundColor = 'var(--success)';
+            } else {
+                if (sagReady) videoSag.play();
+                if (frontReady) videoFront.play();
+                btnPlayPause.innerHTML = '⏸️ Pausar para Leer';
+                btnPlayPause.style.backgroundColor = 'var(--primary)';
             }
         });
     </script>
